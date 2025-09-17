@@ -1,0 +1,106 @@
+---
+RANDOM_STATE: 33
+NUMBER_OF_FOLDS: 4
+STRATIFICATION:
+- internal_store_id
+- internal_product_id
+FEATURE_STRATIFICATION:
+- internal_store_id
+- internal_product_id
+TARGET: quantity
+EVAL_FEATURES:
+- internal_store_id
+- internal_product_id
+- week_of_year
+FEATURES:
+- gross_value
+- net_value
+- gross_profit
+- discount
+- premise
+- categoria_pdv
+- tipos
+- label
+- subcategoria
+- marca
+- fabricante
+- month
+- day_of_week
+- week_of_year
+- city
+- AVG_SALES_CITY_MONTH
+- AVG_SALES_CITY_WEEK_OF_YEAR
+- AVG_SALES_CITY_DAY_OF_WEEK
+DROP_OUTLIERS_P99: false
+PREPROCESSING:
+  ONE_HOT:
+    drop: first
+    sparse_output: false
+    handle_unknown: infrequent_if_exist
+    min_frequency: 0.01
+  KNN_IMPUTER:
+    AVG_SALES_CITY_DAY_OF_WEEK:
+    - internal_product_id
+    - city
+    - day_of_week
+    AVG_SALES_CITY_WEEK_OF_YEAR:
+    - internal_product_id
+    - city
+    - week_of_year
+    AVG_SALES_CITY_MONTH:
+    - internal_product_id
+    - city
+    - month
+  CYCLICAL_FEATURES:
+    month:
+      max_value: 12
+      target_column: month
+    day_of_week:
+      max_value: 7
+      target_column: day_of_week
+    week_of_year:
+      max_value: 52
+      target_column: week_of_year
+  STANDARDIZE: true
+OPTUNA_PARAMS:
+  DIRECTION: minimize
+  TRIALS: 10
+  MODEL:
+    tree_method:
+    - approx
+    - hist
+    n_estimators:
+    - 100
+    - 500
+    - true
+    max_depth:
+    - 3
+    - 7
+    - true
+    learning_rate:
+    - 0.001
+    - 0.1
+    - true
+    min_child_weight:
+    - 1
+    - 250
+    - true
+    reg_alpha:
+    - 0.001
+    - 20
+    - true
+    reg_lambda:
+    - 0.001
+    - 20
+    - true
+    subsample:
+    - 0.1
+    - 1
+    - true
+    colsample_bytree:
+    - 0.1
+    - 1
+    - true
+    importance_type: total_gain
+SHAP_PARAMS:
+  SHAP_SAMPLE: 1000
