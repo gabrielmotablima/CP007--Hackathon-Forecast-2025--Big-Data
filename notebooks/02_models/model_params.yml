@@ -24,16 +24,19 @@ FEATURES:
 - month
 - week_of_year
 - city
-- previous_month_quantity_mean
-- previous_month_gross_value_mean
-- previous_month_net_value_mean
-- previous_month_gross_profit_mean
-- previous_month_discount_mean 
-- previous_week_quantity_mean
-- previous_week_gross_value_mean
-- previous_week_net_value_mean
-- previous_week_gross_profit_mean
-- previous_week_discount_mean
+- holiday
+- previous_month_quantity_sum
+- previous_month_gross_value_sum
+- previous_month_net_value_sum
+- previous_month_gross_profit_sum
+- previous_month_discount_sum 
+- discount_rate_month
+- profit_margin_month
+- quantity_lag1
+- quantity_lag2
+- quantity_lag3
+- quantity_lag4
+- quantity_lag5
 PREPROCESSING:
   # ONE_HOT:
   #   drop: first
@@ -47,7 +50,7 @@ PREPROCESSING:
       sigma: 0.05
       a: 1.0
   # KNN_IMPUTER:
-  #   previous_week_quantity_mean:
+  #   previous_week_quantity_sum:
   #   - internal_product_id
   #   - city
   #   - week_of_year
