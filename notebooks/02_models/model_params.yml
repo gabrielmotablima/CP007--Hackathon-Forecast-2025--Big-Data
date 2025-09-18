@@ -13,10 +13,7 @@ EVAL_FEATURES:
 - internal_product_id
 - week_of_year
 FEATURES:
-- gross_value
-- net_value
-- gross_profit
-- discount
+- distributor_id
 - premise
 - categoria_pdv
 - tipos
@@ -25,80 +22,80 @@ FEATURES:
 - marca
 - fabricante
 - month
-- day_of_week
 - week_of_year
 - city
-- AVG_SALES_CITY_MONTH
-- AVG_SALES_CITY_WEEK_OF_YEAR
-- AVG_SALES_CITY_DAY_OF_WEEK
-DROP_OUTLIERS_P99: false
+- previous_month_quantity_mean
+- previous_month_gross_value_mean
+- previous_month_net_value_mean
+- previous_month_gross_profit_mean
+- previous_month_discount_mean 
+- previous_week_quantity_mean
+- previous_week_gross_value_mean
+- previous_week_net_value_mean
+- previous_week_gross_profit_mean
+- previous_week_discount_mean
 PREPROCESSING:
-  ONE_HOT:
-    drop: first
-    sparse_output: false
-    handle_unknown: infrequent_if_exist
-    min_frequency: 0.01
-  KNN_IMPUTER:
-    AVG_SALES_CITY_DAY_OF_WEEK:
-    - internal_product_id
-    - city
-    - day_of_week
-    AVG_SALES_CITY_WEEK_OF_YEAR:
-    - internal_product_id
-    - city
-    - week_of_year
-    AVG_SALES_CITY_MONTH:
-    - internal_product_id
-    - city
-    - month
+  # ONE_HOT:
+  #   drop: first
+  #   sparse_output: false
+  #   handle_unknown: infrequent_if_exist
+  #   min_frequency: 0.01
+  TARGET_ENCODE:
+    encoder: "catboost"   # opções: "catboost", "loo", "target", "m_estimate"
+    params:
+      random_state: 42
+      sigma: 0.05
+      a: 1.0
+  # KNN_IMPUTER:
+  #   previous_week_quantity_mean:
+  #   - internal_product_id
+  #   - city
+  #   - week_of_year
   CYCLICAL_FEATURES:
     month:
       max_value: 12
       target_column: month
-    day_of_week:
-      max_value: 7
-      target_column: day_of_week
     week_of_year:
       max_value: 52
       target_column: week_of_year
   STANDARDIZE: true
 OPTUNA_PARAMS:
   DIRECTION: minimize
-  TRIALS: 10
+  TRIALS: 30
   MODEL:
     tree_method:
     - approx
     - hist
     n_estimators:
-    - 100
-    - 500
+    - 300
+    - 2000
     - true
     max_depth:
-    - 3
-    - 7
+    - 2
+    - 6
     - true
     learning_rate:
-    - 0.001
+    - 0.01
     - 0.1
     - true
     min_child_weight:
-    - 1
-    - 250
+    - 10
+    - 500
     - true
     reg_alpha:
-    - 0.001
+    - 0.01
     - 20
     - true
     reg_lambda:
-    - 0.001
+    - 0.01
     - 20
     - true
     subsample:
-    - 0.1
+    - 0.3
     - 1
     - true
     colsample_bytree:
-    - 0.1
+    - 0.3
     - 1
     - true
     importance_type: total_gain
