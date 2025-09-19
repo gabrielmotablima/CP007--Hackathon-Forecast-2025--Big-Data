@@ -64,34 +64,34 @@ PREPROCESSING:
   STANDARDIZE: true
 OPTUNA_PARAMS:
   DIRECTION: minimize
-  TRIALS: 30
+  TRIALS: 100
   MODEL:
     tree_method:
     - approx
     - hist
     n_estimators:
-    - 300
-    - 2000
+    - 400
+    - 3000
     - true
     max_depth:
-    - 2
-    - 6
+    - 4
+    - 10
     - true
     learning_rate:
     - 0.01
     - 0.1
     - true
     min_child_weight:
-    - 10
-    - 500
+    - 5
+    - 100
     - true
     reg_alpha:
-    - 0.01
-    - 20
+    - 0.001
+    - 15
     - true
     reg_lambda:
-    - 0.01
-    - 20
+    - 0.001
+    - 15
     - true
     subsample:
     - 0.3
