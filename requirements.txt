@@ -5,3 +5,5 @@ fastparquet
 seaborn
 matplotlib
 scikit-learn
+optuna
+category_encoders
