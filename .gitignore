@@ -209,3 +209,4 @@ __marimo__/
 # Files
 *.parquet
 *.csv
+notebooks/02_models/outputs/*
