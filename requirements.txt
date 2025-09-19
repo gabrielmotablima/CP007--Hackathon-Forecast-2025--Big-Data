@@ -1,0 +1,7 @@
+pandas
+polars
+numpy
+fastparquet
+seaborn
+matplotlib
+scikit-learn
