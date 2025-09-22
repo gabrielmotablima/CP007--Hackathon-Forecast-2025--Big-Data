@@ -1,6 +1,6 @@
 ---
 RANDOM_STATE: 33
-NUMBER_OF_FOLDS: 4
+NUMBER_OF_FOLDS: 5
 STRATIFICATION:
 - internal_store_id
 - internal_product_id
@@ -64,14 +64,14 @@ PREPROCESSING:
   STANDARDIZE: true
 OPTUNA_PARAMS:
   DIRECTION: minimize
-  TRIALS: 100
+  TRIALS: 25
   MODEL:
     tree_method:
     - approx
     - hist
     n_estimators:
     - 400
-    - 3000
+    - 4000
     - true
     max_depth:
     - 4
@@ -82,23 +82,23 @@ OPTUNA_PARAMS:
     - 0.1
     - true
     min_child_weight:
-    - 5
-    - 100
+    - 1
+    - 30
     - true
     reg_alpha:
     - 0.001
-    - 15
+    - 10
     - true
     reg_lambda:
     - 0.001
-    - 15
+    - 10
     - true
     subsample:
-    - 0.3
+    - 0.5
     - 1
     - true
     colsample_bytree:
-    - 0.3
+    - 0.5
     - 1
     - true
     importance_type: total_gain

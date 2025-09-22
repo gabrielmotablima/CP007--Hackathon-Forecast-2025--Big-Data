@@ -27,10 +27,7 @@ def wmape_score(y_true, y_pred):
     numerator = np.sum(np.abs(y_true - y_pred))
     denominator = np.sum(np.abs(y_true))
 
-    if denominator == 0:
-        return np.inf  # Or handle as appropriate for your use case
-
-    return (numerator / denominator) * 100 # Often expressed as a percentage
+    return (numerator / denominator + 1e-9) * 100 # Often expressed as a percentage
 
 
 def cyclical_feature(x, target_column, max_value):
