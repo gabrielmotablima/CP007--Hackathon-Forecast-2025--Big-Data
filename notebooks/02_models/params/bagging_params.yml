@@ -1,0 +1,63 @@
+---
+RANDOM_STATE: 33
+NUMBER_OF_FOLDS: 4
+TARGET: quantity
+EVAL_FEATURES:
+- internal_store_id
+- internal_product_id
+- week_of_year
+FEATURES:
+- distributor_id
+- premise
+- categoria_pdv
+- tipos
+- label
+- subcategoria
+- marca
+- fabricante
+- month
+- week_of_year
+- city
+- holiday
+- previous_month_quantity_sum
+- previous_month_gross_value_sum
+- previous_month_net_value_sum
+- previous_month_gross_profit_sum
+- previous_month_discount_sum 
+- discount_rate_month
+- profit_margin_month
+- quantity_lag1
+- quantity_lag2
+- quantity_lag3
+- quantity_lag4
+- quantity_lag5
+PREPROCESSING:
+  TARGET_ENCODE:
+    encoder: "catboost"
+    params:
+      random_state: 42
+      sigma: 0.05
+  CYCLICAL_FEATURES:
+    month:
+      max_value: 12
+      target_column: month
+    week_of_year:
+      max_value: 52
+      target_column: week_of_year
+  STANDARDIZE: true
+OPTUNA_PARAMS:
+  DIRECTION: minimize
+  TRIALS: 1
+  BAGGING_XGBOOST:
+    BAGGING:
+      n_estimators: [1, 5, true]
+      max_samples: [0.1, 0.5, false]
+      max_features: [0.1, 0.5, false]
+    XGBOOST:
+      n_estimators: [50, 250, true]
+      max_depth: [3, 7, true]
+      learning_rate: [0.01, 0.1, true]
+      min_child_weight: [10, 100, true]
+      subsample: [0.6, 1.0, false]
+      colsample_bytree: [0.6, 1.0, false]
+

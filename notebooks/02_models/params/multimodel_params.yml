@@ -1,0 +1,125 @@
+---
+RANDOM_STATE: 33
+NUMBER_OF_FOLDS: 4
+TARGET: quantity
+EVAL_FEATURES:
+- internal_store_id
+- internal_product_id
+- week_of_year
+FEATURES:
+- distributor_id
+- premise
+- categoria_pdv
+- tipos
+- label
+- subcategoria
+- marca
+- fabricante
+- month
+- week_of_year
+- city
+- holiday
+- previous_month_quantity_sum
+- previous_month_gross_value_sum
+- previous_month_net_value_sum
+- previous_month_gross_profit_sum
+- previous_month_discount_sum
+- discount_rate_month
+- profit_margin_month
+- quantity_lag1
+- quantity_lag2
+- quantity_lag3
+- quantity_lag4
+- quantity_lag5
+PREPROCESSING:
+  TARGET_ENCODE:
+    encoder: "catboost"
+    params:
+      random_state: 42
+      sigma: 0.05
+      a: 1.0
+  CYCLICAL_FEATURES:
+    month:
+      max_value: 12
+      target_column: month
+    week_of_year:
+      max_value: 52
+      target_column: week_of_year
+  STANDARDIZE: true
+OPTUNA_PARAMS:
+  DIRECTION: minimize
+  TRIALS: 1
+MODELS:
+  XGBOOST:
+    n_estimators:
+    - 400
+    - 3000
+    - true
+    max_depth:
+    - 4
+    - 12
+    - true
+    learning_rate:
+    - 0.01
+    - 0.1
+    - true
+    min_child_weight:
+    - 5
+    - 100
+    - true
+    reg_alpha:
+    - 0.001
+    - 15
+    - true
+    reg_lambda:
+    - 0.001
+    - 15
+    - true
+    subsample:
+    - 0.3
+    - 1.0
+    - false
+    colsample_bytree:
+    - 0.3
+    - 1.0
+    - false
+  RANDOM_FOREST:
+    n_estimators:
+    - 100
+    - 1000
+    - true
+    max_depth:
+    - 5
+    - 30
+    - true
+    min_samples_leaf:
+    - 2
+    - 20
+    - true
+    min_samples_split:
+    - 2
+    - 20
+    - true
+  SVR:
+    C:
+    - 0.1
+    - 10.0
+    - true
+    gamma:
+    - 0.001
+    - 1.0
+    - true
+    kernel:
+    - linear
+    - rbf
+  # KNEIGHBORS:
+  #   n_neighbors:
+  #   - 3
+  #   - 30
+  #   - true
+  #   weights:
+  #   - uniform
+  #   - distance
+  #   p:
+  #   - 1
+  #   - 2

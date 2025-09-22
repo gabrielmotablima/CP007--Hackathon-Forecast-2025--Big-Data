@@ -64,7 +64,7 @@ PREPROCESSING:
   STANDARDIZE: true
 OPTUNA_PARAMS:
   DIRECTION: minimize
-  TRIALS: 100
+  TRIALS: 1
   MODEL:
     tree_method:
     - approx
