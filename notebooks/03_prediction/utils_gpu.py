@@ -1,14 +1,3 @@
-"""
-Utilities for Sales Forecasting Model - XGBoost Implementation
-
-Este módulo contém funções utilitárias e classes customizadas para o projeto
-de previsão de vendas, incluindo métricas de avaliação, transformações de 
-features e encoders categóricos.
-
-Autor: Equipe FGY - Hackathon Forecast 2025
-Data: 2025
-"""
-
 import numpy as np
 import optuna
 import pandas as pd
@@ -16,47 +5,23 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer, make_column_transformer, make_column_selector
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.impute import KNNImputer, SimpleImputer
+import xgboost as xgb
 import optuna
 import category_encoders as ce
+import xgboost as xgb
+import time
 
-
-def wmape_score(y_true, y_pred, epsilon=1e-8):
-    """
-    Calcula o WMAPE (Weighted Mean Absolute Percentage Error) entre valores reais e preditos.
-    
-    O WMAPE é uma métrica mais robusta que o MAPE tradicional, especialmente para
-    séries temporais com valores próximos de zero, pois pondera os erros pelo volume total.
-    
-    Fórmula: WMAPE = (Σ|y_true - y_pred| / Σ|y_true|) × 100
-    
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        Valores reais/observados
-    y_pred : array-like of shape (n_samples,)
-        Valores preditos pelo modelo
-    epsilon : float, default=1e-8
-        Pequeno valor para evitar divisão por zero
-        
-    Returns
-    -------
-    float
-        Pontuação WMAPE em percentual (0-100)
-        
-    Examples
-    --------
-    >>> y_true = [100, 200, 300]
-    >>> y_pred = [90, 210, 290]
-    >>> wmape_score(y_true, y_pred)
-    5.0
-    
-    Notes
-    -----
-    - Valores menores indicam melhor performance
-    - Retorna inf se denominador for zero
-    - Amplamente usado para avaliação de modelos de forecast de vendas
-    """
+def wmape_score(y_true, y_pred):
+    '''
+    Function to calculate the Weighted Mean Absolute Percentage Error (WMAPE) between true and predicted values.
+    Parameters:
+    - y_true: array-like of shape (n_samples,), true values.
+    - y_pred: array-like of shape (n_samples,), predicted values.
+    Returns:
+    - float, the WMAPE score.
+    '''
     y_true, y_pred = np.array(y_true), np.array(y_pred)
 
     numerator = np.sum(np.abs(y_true - y_pred))
@@ -69,42 +34,15 @@ def wmape_score(y_true, y_pred, epsilon=1e-8):
 
 
 def cyclical_feature(x, target_column, max_value):
-    """
-    Transforma uma feature em sua representação cíclica usando transformações 
-    seno e cosseno para capturar a natureza cíclica de variáveis temporais.
-    
-    Esta transformação é especialmente útil para features como mês, dia da semana,
-    hora do dia, etc., onde existe uma continuidade entre o valor máximo e mínimo.
-    
-    Parameters
-    ----------
-    x : pd.DataFrame
-        DataFrame de entrada contendo a coluna target
-    target_column : str
-        Nome da coluna a ser transformada ciclicamente
-    max_value : int or float
-        Valor máximo da feature para normalizar as transformações
-        (ex: 12 para meses, 7 para dias da semana, 24 para horas)
-        
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame com a coluna original substituída por suas 
-        representações seno e cosseno (_SIN e _COS)
-        
-    Examples
-    --------
-    >>> df = pd.DataFrame({'month': [1, 6, 12]})
-    >>> result = cyclical_feature(df, 'month', 12)
-    >>> print(result.columns)
-    Index(['month_SIN', 'month_COS'], dtype='object')
-    
-    Notes
-    -----
-    - Remove a coluna original após a transformação
-    - Preserva a continuidade cíclica (dezembro conecta com janeiro)
-    - Facilita o aprendizado de padrões sazonais pelos modelos ML
-    """
+    '''
+    Function to transform a feature into its cyclical representation using sine and cosine transformations.
+    Parameters:
+    - x: pd.DataFrame, the input dataframe containing the target column.
+    - target_column: str, the name of the column to be transformed.
+    - max_value: int or float, the maximum value of the target column to scale the transformations.
+    Returns:
+    - pd.DataFrame, the dataframe with the original target column replaced by its sine and cosine transformations.
+    '''
     x_transformed = x.copy()
     x_transformed[target_column + '_SIN'] = np.sin(2 * np.pi * x_transformed[target_column] / max_value)
     x_transformed[target_column + '_COS'] = np.cos(2 * np.pi * x_transformed[target_column] / max_value)
@@ -113,37 +51,6 @@ def cyclical_feature(x, target_column, max_value):
 
 
 def get_best_params(study_best_trials):
-    """
-    Seleciona os melhores parâmetros de um estudo Optuna multi-objetivo
-    baseado na menor distância euclidiana ao ponto de origem (0,0).
-    
-    Em otimização multi-objetivo, pode haver múltiplas soluções Pareto-ótimas.
-    Esta função usa distância euclidiana para selecionar uma solução única
-    que equilibra todos os objetivos.
-    
-    Parameters
-    ----------
-    study_best_trials : optuna.study.Study
-        Objeto de estudo Optuna com trials completados
-        
-    Returns
-    -------
-    tuple
-        (índice_melhor_trial, parâmetros_melhor_trial)
-        
-    Examples
-    --------
-    >>> study = optuna.create_study(directions=['minimize', 'minimize'])
-    >>> # ... executar trials ...
-    >>> idx, best_params = get_best_params(study)
-    >>> print(f"Melhor trial: {idx}, Parâmetros: {best_params}")
-    
-    Notes
-    -----
-    - Útil quando há trade-offs entre múltiplos objetivos
-    - Assume que todos os objetivos devem ser minimizados
-    - A distância euclidiana favoriza soluções balanceadas
-    """
 
     trials = study_best_trials.best_trials
 
@@ -158,46 +65,15 @@ def get_best_params(study_best_trials):
 
 
 def sanitize_categories(df):
-    """
-    Sanitiza valores categóricos removendo caracteres especiais que podem
-    causar problemas em algoritmos de machine learning.
-    
-    Esta função é especialmente útil para limpar categorias que contêm
-    caracteres como <, >, [, ], vírgulas e espaços, que podem interferir
-    no processamento por alguns algoritmos ou bibliotecas.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame or array-like
-        DataFrame ou array contendo valores categóricos para sanitizar
-        
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame com valores categóricos sanitizados
-        
-    Examples
-    --------
-    >>> df = pd.DataFrame({'cat': ['A,B', 'C<D', '[E]']})
-    >>> sanitized = sanitize_categories(df)
-    >>> print(sanitized['cat'].tolist())
-    ['A_B', 'C less than D', 'E']
-    
-    Notes
-    -----
-    - Converte todos os valores para string antes da sanitização
-    - Preserva valores NaN/None
-    - Útil antes de aplicar encoders categóricos
-    """
     # df pode vir como DataFrame ou array; garantimos DataFrame
     df = pd.DataFrame(df).copy()
     subs = {
-        "<": "less than",
-        ">": "greater than", 
-        "[": "",
-        "]": "",
-        ",": "_",
-        " ": "_"
+    "<": "less than",
+    ">": "greater than",
+    "[": "",
+    "]": "",
+    ",": "_",
+    " ": "_"
     }
 
     df = df.map(lambda x: str(x).translate(str.maketrans(subs)) if pd.notna(x) else x)
@@ -207,43 +83,9 @@ def sanitize_categories(df):
 class TargetEncoderWrapper(BaseEstimator, TransformerMixin):
     """
     Wrapper para category_encoders com integração limpa em Pipelines do sklearn.
-    
-    Esta classe encapsula diferentes tipos de target encoders do category_encoders,
-    permitindo uso transparente em Pipelines do scikit-learn com validação cruzada
-    e evitando vazamento de dados (data leakage).
-    
-    Parameters
-    ----------
-    encoder_type : str, default='catboost'
-        Tipo de encoder a ser usado:
-        - 'target': TargetEncoder básico
-        - 'm_estimate': MEstimateEncoder com regularização
-        - 'loo': LeaveOneOutEncoder 
-        - 'catboost': CatBoostEncoder (mais robusto)
-    cols : list or None, default=None
-        Lista de colunas categóricas a serem codificadas.
-        Se None, aplica a todas as colunas
-    **kwargs : dict
-        Parâmetros específicos do encoder escolhido
-        (ex: smoothing, m, sigma, random_state, etc.)
-        
-    Attributes
-    ----------
-    _enc : category_encoders.BaseEncoder
-        Instância do encoder configurado
-        
-    Examples
-    --------
-    >>> from sklearn.pipeline import Pipeline
-    >>> encoder = TargetEncoderWrapper(encoder_type='catboost', cols=['categoria'])
-    >>> pipeline = Pipeline([('encoder', encoder), ('model', XGBRegressor())])
-    >>> pipeline.fit(X_train, y_train)
-    
-    Notes
-    -----
-    - Compatível com Pipeline e cross_val_score do sklearn
-    - Evita overfitting usando técnicas internas de cada encoder
-    - CatBoost encoder é geralmente mais robusto para production
+    encoder_type: 'target' | 'm_estimate' | 'loo' | 'catboost'
+    cols: lista de colunas categóricas
+    **kwargs: params do encoder escolhido (ex.: smoothing, m, sigma, random_state, etc.)
     """
     def __init__(self, encoder_type='catboost', cols=None, **kwargs):
         self.encoder_type = encoder_type
@@ -252,7 +94,6 @@ class TargetEncoderWrapper(BaseEstimator, TransformerMixin):
         self._enc = None
 
     def _build_encoder(self):
-        """Constrói a instância do encoder baseado no tipo especificado."""
         enc_map = {
             'target': ce.TargetEncoder,
             'm_estimate': ce.MEstimateEncoder,
@@ -263,21 +104,7 @@ class TargetEncoderWrapper(BaseEstimator, TransformerMixin):
         return Enc(cols=self.cols, **self.kwargs)
 
     def fit(self, X, y=None):
-        """
-        Treina o encoder nas features categóricas usando a variável target.
-        
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Features de entrada
-        y : array-like
-            Variável target (obrigatória para target encoding)
-            
-        Returns
-        -------
-        self : TargetEncoderWrapper
-            Retorna self para permitir method chaining
-        """
+        # category_encoders precisa de y
         if y is None:
             raise ValueError("TargetEncoderWrapper requer y no fit para calcular as estatísticas do target.")
         self._enc = self._build_encoder()
@@ -285,65 +112,19 @@ class TargetEncoderWrapper(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        """
-        Aplica a transformação de encoding nas features categóricas.
-        
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Features de entrada para transformar
-            
-        Returns
-        -------
-        pd.DataFrame
-            Features transformadas com encoding aplicado
-        """
         return self._enc.transform(X)
-    
+
 
 def create_preprocessing_pipeline(preprocessing_configs, numeric_columns, categorical_columns):
-    """
-    Cria um pipeline de pré-processamento baseado na configuração fornecida.
-    
-    Esta função constrói dinamicamente um pipeline do scikit-learn com diferentes
-    etapas de pré-processamento baseadas em um dicionário de configuração,
-    permitindo flexibilidade na definição de transformações.
-    
-    Parameters
-    ----------
-    preprocessing_configs : dict
-        Dicionário de configuração especificando as etapas de pré-processamento
-        e seus parâmetros. Estrutura esperada:
-        {
-            'KNN_IMPUTER': {...},
-            'SCALER': {...},
-            'CATEGORICAL_ENCODER': {...}
-        }
-    numeric_columns : list of str
-        Nomes das colunas numéricas a serem processadas
-    categorical_columns : list of str
-        Nomes das colunas categóricas a serem processadas
-        
-    Returns
-    -------
-    sklearn.pipeline.Pipeline
-        Pipeline de pré-processamento construído com as transformações especificadas
-        
-    Examples
-    --------
-    >>> config = {
-    ...     'KNN_IMPUTER': {'numeric': ['col1', 'col2']},
-    ...     'SCALER': {'standard': ['col1', 'col2']}
-    ... }
-    >>> pipeline = create_preprocessing_pipeline(config, ['col1', 'col2'], ['cat1'])
-    
-    Notes
-    -----
-    - Suporta diferentes tipos de imputação (KNN, Simple)
-    - Múltiplos tipos de scaling (Standard, MinMax, Robust)
-    - Diversos encoders categóricos (OneHot, Target, etc.)
-    - Etapas são aplicadas sequencialmente conforme configuração
-    """
+    '''
+    Function to create a preprocessing pipeline based on the provided configuration dictionary.
+    Parameters:
+    - preprocessing_configs: dict, configuration dictionary specifying the preprocessing steps and their parameters.
+    - numeric_columns: list of str, names of the numeric columns to be processed.
+    - categorical_columns: list of str, names of the categorical columns to be processed.
+    Returns:
+    - sklearn.pipeline.Pipeline, the constructed preprocessing pipeline.
+    '''
     # creating a dictionary to map the steps that should be implemented sequentially
     pre_processing_steps = []
     # iterate preprocessing steps and add them to the dictionary if they are not None
@@ -508,21 +289,50 @@ def objective(trial, hyperparam_ranges, tscv, x_data, regressor_model, columns_t
         ###########################################################################################
         print(f"[Fold {idx}] Fitting the model to the data.")
 
+        # regressor model
+        base_regressor = regressor_model(**dict_params,
+                                        random_state=random_state,
+                                        device='cuda',
+                                        tree_method='hist')
+
+        # transformed target and pack with regressor
+        ttr = TransformedTargetRegressor(
+            regressor=base_regressor,
+            func=np.log1p,      # transforma y -> log(1+y) no fit
+            inverse_func=np.expm1  # volta para o espaço original no predict
+        )
+
         # creating a pipeline object to accomodate both: pre-processing steps and the model
         pipeline = Pipeline(steps=[
             ('preprocessing', pipe_preproc),
-            ('model', regressor_model(**dict_params, random_state = random_state))
+            ('model', ttr),
         ])
 
         # training the model
+        t1 = time.time()
         pipeline.fit(X_train_fold, y_train_fold.values.ravel())
-        
+        print(f"[Fold {idx}] Fit finished in {time.time() - t1:.2f}s")
         ###########################################################################################
         #                            EVALUATING THE MODEL PERFORMANCE                             #
         ###########################################################################################
         # predicting the target values for the training and validation folds
-        y_pred_train = pipeline.predict(X_train_fold)
-        y_pred_val = pipeline.predict(X_val_fold)
+        booster = pipeline.named_steps['model'].regressor_.get_booster()
+
+        # transforme usando o preprocessing (mantém DataFrame com colunas) - training set
+        Xv_proc = pipeline.named_steps['preprocessing'].transform(X_train_fold)  # DataFrame
+        dmat = xgb.DMatrix(Xv_proc, feature_names=list(Xv_proc.columns))
+        y_pred_train_log = booster.predict(dmat)  # validate_features=True (default)
+
+        # transforme usando o preprocessing (mantém DataFrame com colunas) - validation set
+        Xv_proc = pipeline.named_steps['preprocessing'].transform(X_val_fold)  # DataFrame
+        dmat = xgb.DMatrix(Xv_proc, feature_names=list(Xv_proc.columns))
+        y_pred_val_log = booster.predict(dmat)  # validate_features=True (default)
+
+        y_pred_train = np.expm1(y_pred_train_log)
+        y_pred_val = np.expm1(y_pred_val_log)
+
+        print(f"[Fold {idx}] Predict finished.")
+        print(f"[Fold {idx}] Tempo: {time.time()-t1:.2f}s")
         
         # calculating the WMAPE score for the training and validation folds
         score_wmape_train = wmape_score(y_train_fold, y_pred_train)
