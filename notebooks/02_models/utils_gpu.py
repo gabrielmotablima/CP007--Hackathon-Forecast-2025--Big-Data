@@ -13,6 +13,27 @@ import category_encoders as ce
 import xgboost as xgb
 import time
 
+def smape_score(y_true, y_pred, epsilon=1e-6):
+    """
+    Compute a robust Symmetric Mean Absolute Percentage Error (SMAPE)
+    
+    Parameters:
+    - y_true: array-like, valores reais
+    - y_pred: array-like, valores previstos
+    - epsilon: float, valor pequeno para evitar divisão por zero
+    
+    Returns:
+    - smape: float, SMAPE em percentual
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    
+    denominator = (np.abs(y_true) + np.abs(y_pred)) / 2
+    denominator = np.where(denominator < epsilon, epsilon, denominator)  # evita div/0
+    
+    smape = np.mean(np.abs(y_pred - y_true) / denominator) * 100
+    return smape
+
 def wmape_score(y_true, y_pred):
     '''
     Function to calculate the Weighted Mean Absolute Percentage Error (WMAPE) between true and predicted values.
@@ -248,6 +269,7 @@ def objective(trial, hyperparam_ranges, tscv, x_data, regressor_model, columns_t
 
     # hyperparameters that will be optimized by Optuna
     dict_params = defining_hyperparams_function(trial, hyperparam_ranges)
+    dict_params['objective'] = "reg:tweedie"
 
     # Defining scores validation for Optuna optimization
     # This evaluates the validation scores by params trials Optuna
@@ -305,9 +327,15 @@ def objective(trial, hyperparam_ranges, tscv, x_data, regressor_model, columns_t
             ('model', ttr),
         ])
 
+        # calculate weights
+        tipo_freq = X_train_fold['tipos'].value_counts(normalize=True)
+        weight_tipo = X_train_fold['tipos'].map(lambda x: 1 / tipo_freq[x])
+        weight_label = np.where(X_train_fold['label'] == 'Winter Seasonal', 1.2, 1.0)
+        sample_weight = weight_tipo * weight_label
+
         # training the model
         t1 = time.time()
-        pipeline.fit(X_train_fold, y_train_fold.values.ravel())
+        pipeline.fit(X_train_fold, y_train_fold.values.ravel(), **{'model__sample_weight': sample_weight})
         print(f"[Fold {idx}] Fit finished in {time.time() - t1:.2f}s")
         ###########################################################################################
         #                            EVALUATING THE MODEL PERFORMANCE                             #
@@ -332,18 +360,30 @@ def objective(trial, hyperparam_ranges, tscv, x_data, regressor_model, columns_t
         print(f"[Fold {idx}] Tempo: {time.time()-t1:.2f}s")
         
         # calculating the WMAPE score for the training and validation folds
-        score_wmape_train = wmape_score(y_train_fold, y_pred_train)
-        score_wmape_val = wmape_score(y_val_fold, y_pred_val)
-        print(f"[Fold {idx}] WMAPE Training:   {score_wmape_train}.")
-        print(f"[Fold {idx}] WMAPE Validation: {score_wmape_val}.")
+        # score_wmape_train = wmape_score(y_train_fold, y_pred_train)
+        # score_wmape_val = wmape_score(y_val_fold, y_pred_val)
+        # print(f"[Fold {idx}] WMAPE Training:   {score_wmape_train}.")
+        # print(f"[Fold {idx}] WMAPE Validation: {score_wmape_val}.")
+
+        y_pred_clip_train = np.clip(y_pred_train, 0, np.percentile(y_pred_train, 99))
+        y_true_clip_train = np.clip(y_train_fold, 0, np.percentile(y_train_fold, 99))
+
+        y_pred_clip_val = np.clip(y_pred_val, 0, np.percentile(y_pred_val, 99))
+        y_true_clip_val = np.clip(y_val_fold, 0, np.percentile(y_val_fold, 99))
+        
+        score_smape_train = smape_score(y_true_clip_train, y_pred_clip_train)
+        score_smape_val = smape_score(y_true_clip_val, y_pred_clip_val)
+        print(f"[Fold {idx}] SMAPE Training:   {score_smape_train}.")
+        print(f"[Fold {idx}] SMAPE Validation: {score_smape_val}.")
+
         # stores the diff between the training and validation scores
-        scores_overfitting.append(score_wmape_val - score_wmape_train)
+        scores_overfitting.append(score_smape_val - score_smape_train)
         # stores validation score
-        scores_validation.append(score_wmape_val)
+        scores_validation.append(score_smape_val)
 
         if pruner:
             # report intermediate objective value
-            trial.report(score_wmape_val, idx)
+            trial.report(score_smape_val, idx)
             # handle pruning based on the intermediate value
             if trial.should_prune():
                 raise optuna.TrialPruned()
